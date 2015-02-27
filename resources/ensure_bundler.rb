@@ -1,8 +1,9 @@
 require 'rubygems'
 
-if require 'bundler'
+begin
+  require 'bundler'
   return "Already installed"
-else
+rescue LoadError => e
   Gem.install 'bundler'
   return "Installed bundler"
 end
