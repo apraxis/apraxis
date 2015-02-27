@@ -3,8 +3,7 @@
 
 (defn test-build
   []
-  (let [target-dir "target"]
-    (jr/ensure-middleman-env target-dir)
-    (jr/ensure-bundler target-dir)
-    (jr/ensure-middleman target-dir)
-    (jr/run-middleman-build target-dir)))
+  (jr/with-target-root "target"
+    (jr/ensure-bundler)
+    (jr/ensure-middleman)
+    (jr/run-middleman-build)))

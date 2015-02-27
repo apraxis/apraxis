@@ -5,4 +5,5 @@
             :url "http://opensource.org/licenses/MIT"}
   :resource-paths ["resources"]
   :dependencies [[org.clojure/clojure "1.6.0"]
-                 [org.jruby/jruby-complete "1.7.19"]])
+                 [org.jruby/jruby-complete "1.7.19"]]
+  :eval-in-leiningen true)
