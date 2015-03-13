@@ -22,7 +22,7 @@ set :markdown_engine, :kramdown
 set :markdown, :fenced_code_blocks => true, :smartypants => true
 
 Dir["src/structure/components/**/_*.haml"].each do |raw_name|
-  partial_name = raw_name.sub(/src\/structure\//,"")
+  partial_name = raw_name.sub(/src\//,"").sub(/_(.*)\.haml/,'\1')
   component_name = raw_name.gsub(/src\/(.*)\/_(.*).haml/,'/\1/\2.html')
   proxy component_name, "/component_template.html", :locals => { :partial_name => partial_name }, :ignore => true
 end
