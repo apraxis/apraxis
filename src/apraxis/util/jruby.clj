@@ -19,6 +19,10 @@
   [target-dir]
   (io/copy (io/reader (io/resource "Gemfile")) (File. (str target-dir "/middleman/Gemfile"))))
 
+(defn copy-component-template
+  [target-dir]
+  (io/copy (io/reader (io/resource "vendor_src/component_template.html.haml")) (File. (str target-dir "/middleman/vendor_src/component_template.html.haml"))))
+
 (defn create-src-symlink
   [target-dir]
   (Files/createSymbolicLink (.toPath (File. (str target-dir "/middleman/src")))
@@ -35,11 +39,14 @@
   [target-dir]
   (let [dir-reqs (mapcat (fn [filename]
                            [filename #(.mkdir (File. filename))])
-                         [target-dir (str target-dir "/middleman") (str target-dir "/jruby")])
+                         [target-dir (str target-dir "/middleman") (str target-dir "/jruby")
+                          (str target-dir "/middleman/vendor_src")])
         config-req [(str target-dir "/middleman/config.rb") #(copy-config target-dir)]
+        component-template-req [(str target-dir "/middleman/vendor_src/component_template.html.haml")
+                                #(copy-component-template target-dir)]
         gemfile-req [(str target-dir "/middleman/Gemfile") #(copy-gemfile target-dir)]
         src-symlink-req [(str target-dir "/middleman/src") #(create-src-symlink target-dir)]]
-    (ensure-files (concat dir-reqs config-req gemfile-req src-symlink-req))))
+    (ensure-files (concat dir-reqs config-req component-template-req gemfile-req src-symlink-req))))
 
 (defmacro with-target-root
   [target-root-name & body]
