@@ -6,7 +6,7 @@ set :images_dir, 'images'
 
 set :layouts_dir, 'structure/layouts'
 
-compass_config do |config|
+app.compass_config do |config|
   require 'breakpoint'
   config.output_style = :compact
 end
