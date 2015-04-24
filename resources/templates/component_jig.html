@@ -3,10 +3,11 @@
   <head>
   </head>
   <body>
-    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/react/0.11.2/react.js"></script>
-    <script type="text/javascript" src="/js/out/goog/base.js"></script>
-    <script type="text/javascript" src="/js/pixels_against_humanity_client.js"></script>
-    <script type="text/javascript" data-require-tag="true">goog.require('pixels_against_humanity.test');</script>
-    <script type="text/javascript" data-main-tag="true">pixels_against_humanity.test._main();</script>
+    <div id="jig-root"></div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/0.11.2/react.js"></script>
+    <script src="/js/out/goog/base.js"></script>
+    <script src="/js/pixels_against_humanity_client.js"></script>
+    <script>goog.require('apraxis.client.jig');</script>
+    <script>apraxis.client.jig._main();</script>
   </body>
 </html>
