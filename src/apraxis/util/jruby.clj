@@ -6,9 +6,6 @@
            java.nio.file.attribute.FileAttribute
            (java.util HashMap)))
 
-(def jgem-resource-path
-  "META-INF/jruby.home/bin/jgem")
-
 (def ^:dynamic *target-root* nil)
 
 (defn copy-config

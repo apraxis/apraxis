@@ -16,10 +16,13 @@
 (defonce ^:private apraxis-service (atom nil))
 
 (defn run-apraxis
-  [service-ns]
-  (let [target-ns (to-ns service-ns)
+  [app-name]
+  (let [target-ns (-> app-name
+                      (str ".service")
+                      symbol
+                      to-ns)
         svc-fn (ns-resolve target-ns 'service)]
-    (reset! apraxis-service {:service-ns service-ns
+    (reset! apraxis-service {:app-name app-name
                              :service (-> (svc-fn) ;; start with production configuration
                                           (merge {:env :dev
                                                   ;; do not block thread that starts web server
@@ -32,6 +35,7 @@
                                           ;; Wire up interceptor chains
                                           server/default-interceptors
                                           server/dev-interceptors
+                                          (dev/ambient-app-name app-name)
                                           server/create-server
                                           server/start)})))
 
@@ -48,4 +52,4 @@
     (throw (ex-info "No apraxis service running, cannot restart."
                     {:current-apraxis-service apraxis-service})))
   (stop-apraxis)
-  (-> @apraxis-service :service-ns run-apraxis))
+  (-> @apraxis-service :app-name run-apraxis))
