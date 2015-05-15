@@ -9,7 +9,8 @@
             [ring.middleware.resource :as ring-resource]
             [ring.middleware.content-type :as ring-content-type]
             [clojure.pprint :refer [pprint]]
-            [clojure.java.io :as io])
+            [clojure.java.io :as io]
+            [net.cgrand.enlive-html :as html :refer [deftemplate]])
   (:import (java.io File)
            (clojure.lang RT)))
 
@@ -39,17 +40,34 @@
           :headers {}
           :status 200}))
 
+(deftemplate jig-template
+  "templates/component_jig.html"
+  [app-name component component-fn]
+  [:#component-require] (html/content (str "goog.require('"
+                                           (namespace-munge app-name)
+                                           "."
+                                           (namespace-munge component)
+                                           "');"))
+  [:#component-invoke] (html/content (str "apraxis.client.jig._main("
+                                          (namespace-munge app-name)
+                                          "."
+                                          (namespace-munge component)
+                                          "."
+                                          (namespace-munge component-fn)
+                                          ");")))
+
 (defbefore component-renderer
   [{:keys [request] :as context}]
   @middleman-build-classpath-hack
   (let [app-name (::app-name context)
         component (-> request :path-params :component)
-        component-resource (io/resource "templates/component_jig.html")
-        #_(io/resource (str "structure/components/" component "/index.html"))
+        component-fn (str component "_component")
+        ;; component-resource (io/resource (str "structure/components/" component "/index.html"))
+        ;; response-body (io/file component-resource)
         ;; TODO: rewrite CSS and other URLS "/" -> "/dev/static/"
-        response (if component-resource
-                   (-> component-resource
-                       io/file
+        response-body (apply str (jig-template app-name component component-fn))
+        response (if response-body
+                   (-> response-body
                        response/response
                        (response/content-type "text/html"))
                    {:body (str "No component '" component "' found. Searching in " (io/resource (str "structure/components")))

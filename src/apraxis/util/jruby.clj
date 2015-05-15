@@ -22,9 +22,13 @@
 
 (defn create-src-symlink
   [target-dir]
-  (Files/createSymbolicLink (.toPath (File. (str target-dir "/middleman/src")))
+  (Files/createSymbolicLink (.toPath (File. (str target-dir "/middleman/source")))
                             (.toPath (.getCanonicalFile (File. "src")))
                             (make-array FileAttribute 0)))
+
+(defn copy-ruby-version
+  [target-dir]
+  (io/copy (io/reader (io/resource "dotruby-version")) (File. (str target-dir "/middleman/.ruby-version"))))
 
 (defn ensure-files
   [file-fns-vec]
@@ -42,8 +46,9 @@
         component-template-req [(str target-dir "/middleman/vendor_src/component_template.html.haml")
                                 #(copy-component-template target-dir)]
         gemfile-req [(str target-dir "/middleman/Gemfile") #(copy-gemfile target-dir)]
-        src-symlink-req [(str target-dir "/middleman/src") #(create-src-symlink target-dir)]]
-    (ensure-files (concat dir-reqs config-req component-template-req gemfile-req src-symlink-req))))
+        src-symlink-req [(str target-dir "/middleman/src") #(create-src-symlink target-dir)]
+        ruby-version-req [(str target-dir "/middleman/.ruby-version") #(copy-ruby-version target-dir)]]
+    (ensure-files (concat dir-reqs config-req component-template-req gemfile-req src-symlink-req ruby-version-req))))
 
 (defmacro with-target-root
   [target-root-name & body]

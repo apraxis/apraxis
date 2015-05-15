@@ -16,8 +16,8 @@
                      data)))))
 
 (defn ^:export -main
-  []
-  (let [app-state (atom {:component pixels-against-humanity.test/test-component
+  [cmp]
+  (let [app-state (atom {:component cmp
                          :data [{} "go" :us]})]
     (om/root jig-component app-state
              {:target (.getElementById js/document "jig-root")})))

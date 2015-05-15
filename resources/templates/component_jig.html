@@ -8,6 +8,7 @@
     <script src="/js/out/goog/base.js"></script>
     <script src="/js/pixels_against_humanity_client.js"></script>
     <script>goog.require('apraxis.client.jig');</script>
-    <script>apraxis.client.jig._main();</script>
+    <script id="component-require">goog.require('someproject');</script>
+    <script id="component-invoke">apraxis.client.jig._main(someproject.somecomponent);</script>
   </body>
 </html>
