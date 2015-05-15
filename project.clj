@@ -6,6 +6,7 @@
   :resource-paths ["resources"]
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [org.jruby/jruby-complete "1.7.19"]
-                 [io.pedestal/pedestal.service "0.3.1"]
+                 [io.pedestal/pedestal.service "0.3.1" :exclusions [cheshire com.fasterxml.jackson.core/jackson-core]]
+                 [cheshire "5.4.0"]
                  [enlive "1.1.5"]]
   :eval-in-leiningen true)

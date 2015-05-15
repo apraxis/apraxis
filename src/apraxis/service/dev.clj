@@ -10,9 +10,11 @@
             [ring.middleware.content-type :as ring-content-type]
             [clojure.pprint :refer [pprint]]
             [clojure.java.io :as io]
-            [net.cgrand.enlive-html :as html :refer [deftemplate]])
+            [clojure.edn :as edn]
+            [net.cgrand.enlive-html :as html :refer [deftemplate]]
+            [cheshire.core :refer [generate-string]])
   (:import (java.io File)
-           (clojure.lang RT)))
+           (clojure.lang RT LineNumberingPushbackReader)))
 
 (defn expose-app-name
   [app-name]
@@ -40,20 +42,38 @@
           :headers {}
           :status 200}))
 
+(defn js-name
+  [& cljs-names]
+  (apply str (interpose "." (map namespace-munge cljs-names))))
+
+(defn sample-data
+  [component]
+  (let [reader (-> (str "./src/sample/" component ".edn")
+                   io/reader
+                   LineNumberingPushbackReader.)]
+    (take-while (partial not= ::end)
+                (repeatedly #(edn/read {:eof ::end} reader)))))
+
+(defn main-js-obj
+  [app-name component component-fn scheme server-name server-port]
+  (generate-string {"component" (js-name app-name component component-fn)
+                    "component-name" component
+                    "api-root" (str scheme "://" server-name ":" server-port "/dev")
+                    "data" (pr-str (sample-data component))}))
+
 (deftemplate jig-template
   "templates/component_jig.html"
-  [app-name component component-fn]
+  [app-name component component-fn scheme server-name server-port]
   [:#component-require] (html/content (str "goog.require('"
-                                           (namespace-munge app-name)
-                                           "."
-                                           (namespace-munge component)
+                                           (js-name app-name component)
                                            "');"))
   [:#component-invoke] (html/content (str "apraxis.client.jig._main("
-                                          (namespace-munge app-name)
-                                          "."
-                                          (namespace-munge component)
-                                          "."
-                                          (namespace-munge component-fn)
+                                          (main-js-obj app-name
+                                                       component
+                                                       component-fn
+                                                       scheme
+                                                       server-name
+                                                       server-port)
                                           ");")))
 
 (defbefore component-renderer
@@ -62,10 +82,15 @@
   (let [app-name (::app-name context)
         component (-> request :path-params :component)
         component-fn (str component "_component")
+        scheme (name (get-in context [:request :headers "x-forwarded-proto"]
+                             (-> context :request :scheme)))
+        server-name (-> context :request :server-name)
+        server-port (get (-> context :request :headers) "x-forwarded-port"
+                         (-> context :request :server-port))
         ;; component-resource (io/resource (str "structure/components/" component "/index.html"))
         ;; response-body (io/file component-resource)
         ;; TODO: rewrite CSS and other URLS "/" -> "/dev/static/"
-        response-body (apply str (jig-template app-name component component-fn))
+        response-body (apply str (jig-template app-name component component-fn scheme server-name server-port))
         response (if response-body
                    (-> response-body
                        response/response
@@ -74,7 +99,7 @@
                     :headers {}
                     :status 200})]
     (assoc context
-           :response response)))
+      :response response)))
 
 (defbefore static-renderer
   [{:keys [request] :as context}]
