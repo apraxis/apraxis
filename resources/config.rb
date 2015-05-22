@@ -1,4 +1,9 @@
-files.watch :source, path: File.join(root, 'vendor_src'), priority: 100
+def expand_symlink(relative_path)
+  File.expand_path(File.readlink(File.expand_path(relative_path, app.root)), app.root)
+end
+
+files.watch :source, path: expand_symlink('source'), priority: 100
+files.watch :source, path: File.expand_path('vendor_src', app.root), priority: 100
 
 set :css_dir, 'style'
 
