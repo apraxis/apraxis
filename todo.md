@@ -1,6 +1,3 @@
-* Create apraxis component rendering jig. Renders component once per each chunk of data in example edn.
-* HTML doc goog.requires jig, and goog.requires the targeted component. The targeted component is filled in by enlive in pedestal.
-* EDN updates should provoke live updates to the example components.
 * HTML doc invokes jig with target component, and with EDN
 * Open questions:
     * Use figwheel for iterative delivery of JS? If so, hack together EDN delivery by js delivery?

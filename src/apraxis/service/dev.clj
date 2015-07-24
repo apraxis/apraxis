@@ -1,10 +1,11 @@
 (ns apraxis.service.dev
-  (:require [io.pedestal.interceptor :refer [defbefore]]
+  (:require [io.pedestal.interceptor :refer [defbefore definterceptorfn]]
             [io.pedestal.http :as bootstrap]
             [io.pedestal.http.route :refer [router]]
             [io.pedestal.http.route.definition :refer [defroutes]]
             [io.pedestal.log :as log]
             [io.pedestal.impl.interceptor :as pincept]
+            [io.pedestal.http.sse :as sse]
             [ring.util.response :as response]
             [ring.middleware.resource :as ring-resource]
             [ring.middleware.content-type :as ring-content-type]
@@ -12,7 +13,9 @@
             [clojure.java.io :as io]
             [clojure.edn :as edn]
             [net.cgrand.enlive-html :as html :refer [deftemplate]]
-            [cheshire.core :refer [generate-string]])
+            [clojure.core.async :refer [go put! >! <! chan mult tap untap close!]]
+            [cheshire.core :refer [generate-string]]
+            [clojure-watch.core :refer [start-watch]])
   (:import (java.io File)
            (clojure.lang RT LineNumberingPushbackReader)))
 
@@ -46,20 +49,59 @@
   [& cljs-names]
   (apply str (interpose "." (map namespace-munge cljs-names))))
 
+(defn sample-file-name
+  [component]
+  (str "./src/sample/" component ".edn"))
+
 (defn sample-data
   [component]
-  (let [reader (-> (str "./src/sample/" component ".edn")
+  (let [reader (-> (sample-file-name component)
                    io/reader
                    LineNumberingPushbackReader.)]
     (take-while (partial not= ::end)
                 (repeatedly #(edn/read {:eof ::end} reader)))))
 
+(defonce watcher-dist
+  (let [input (chan)
+        dist (mult input)]
+    (start-watch [{:path (-> "./src/sample/"
+                             (File.)
+                             .getCanonicalFile)
+                   :event-types [:modify]
+                   :callback (fn [event filename]
+                               (put! input filename))
+                   :options {:recursive true}}])
+    dist))
+
+(defn sample-streamer
+  [event-ch {:keys [request response] :as context}]
+  (let [component (-> (:path-params request) :component)
+        feed (chan)]
+    (tap watcher-dist feed)
+    (go
+      (>! event-ch {:name "sample-set"
+                    :data (pr-str (sample-data component))})
+      (loop [filename (<! feed)]
+        (let [match (= filename (-> component
+                                    sample-file-name
+                                    (File.)
+                                    .getCanonicalPath))
+              write (if match
+                      (try (>! event-ch {:name "sample-set"
+                                         :data (pr-str (sample-data component))})
+                           true
+                           (catch Throwable t
+                             (untap watcher-dist feed)
+                             (close! feed)
+                             false))
+                      true)]
+          (when write (recur (<! feed))))))))
+
 (defn main-js-obj
   [app-name component component-fn scheme server-name server-port]
   (generate-string {"component" (js-name app-name component component-fn)
                     "component-name" component
-                    "api-root" (str scheme "://" server-name ":" server-port "/dev")
-                    "data" (pr-str (sample-data component))}))
+                    "api-root" (str scheme "://" server-name ":" server-port "/dev")}))
 
 (deftemplate jig-template
   "templates/component_jig.html"
@@ -113,7 +155,8 @@
 
 (defroutes dev-routes
   [[["/components/*component" {:get component-renderer}]
-    ["/static/*resource" {:get static-renderer}]]])
+    ["/static/*resource" {:get static-renderer}]
+    ["/sample-streams/*component" {:get [::sample-streamer (sse/start-event-stream sample-streamer)]}]]])
 
 (def dev-router
   (router dev-routes))

@@ -19,9 +19,17 @@
 (defn ^:export -main
   [js-obj]
   (let [app-state (atom {:component (js/eval (.-component js-obj))
-                         :data (try (reader/read-string (.-data js-obj))
-                                    (catch js/Error e
-                                      (.log js/console e)
-                                      [{}]))})]
+                         :api-root (aget js-obj "api-root")
+                         :component-name (aget js-obj "component-name")
+                         :data '()})
+        stream-url (str (:api-root @app-state)
+                        "/sample-streams/"
+                        (:component-name @app-state))
+        source (js/EventSource. stream-url)]
+    (.addEventListener source
+                       "sample-set"
+                       (fn [e]
+                         (let [vals (reader/read-string (.-data e))]
+                           (swap! app-state assoc :data vals))))
     (om/root jig-component app-state
              {:target (.getElementById js/document "jig-root")})))
