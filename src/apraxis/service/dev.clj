@@ -2,40 +2,23 @@
   (:require [io.pedestal.interceptor :refer [defbefore definterceptorfn]]
             [io.pedestal.http :as bootstrap]
             [io.pedestal.http.route :refer [router]]
-            [io.pedestal.http.route.definition :refer [defroutes]]
+            [io.pedestal.http.route.definition :refer [expand-routes]]
             [io.pedestal.log :as log]
             [io.pedestal.impl.interceptor :as pincept]
             [io.pedestal.http.sse :as sse]
             [ring.util.response :as response]
             [ring.middleware.resource :as ring-resource]
             [ring.middleware.content-type :as ring-content-type]
-            [clojure.pprint :refer [pprint]]
             [clojure.java.io :as io]
             [clojure.edn :as edn]
             [net.cgrand.enlive-html :as html :refer [deftemplate]]
             [clojure.core.async :refer [go put! >! <! chan mult tap untap close!]]
             [cheshire.core :refer [generate-string]]
-            [clojure-watch.core :refer [start-watch]])
+            [clojure-watch.core :refer [start-watch]]
+            [com.stuartsierra.component :as component :refer (Lifecycle start stop)]
+            [apraxis.service.file-monitor :as filemon])
   (:import (java.io File)
            (clojure.lang RT LineNumberingPushbackReader)))
-
-(defn expose-app-name
-  [app-name]
-  (pincept/interceptor :enter (fn [context] (assoc context ::app-name app-name))
-                       :name ::expose-app-name))
-
-(defn ambient-app-name
-  [service-map app-name]
-  (update-in service-map [::bootstrap/interceptors]
-             #(-> app-name
-                  expose-app-name
-                  (cons %)
-                  vec)))
-
-(def middleman-build-classpath-hack
-  (delay
-   (let [target-middleman (File. "./target/middleman/build")]
-     (RT/addURL (.toURL (.toURI (.getCanonicalFile target-middleman)))))))
 
 (defbefore dev-index
   [context]
@@ -61,40 +44,25 @@
     (take-while (partial not= ::end)
                 (repeatedly #(edn/read {:eof ::end} reader)))))
 
-(defonce watcher-dist
-  (let [input (chan)
-        dist (mult input)]
-    (start-watch [{:path (-> "./src/sample/"
-                             (File.)
-                             .getCanonicalFile)
-                   :event-types [:modify]
-                   :callback (fn [event filename]
-                               (put! input filename))
-                   :options {:recursive true}}])
-    dist))
-
 (defn sample-streamer
-  [event-ch {:keys [request response] :as context}]
+  [file-monitor event-ch {:keys [request response] :as context}]
   (let [component (-> (:path-params request) :component)
-        feed (chan)]
-    (tap watcher-dist feed)
+        sample-file-name (-> component
+                             sample-file-name
+                             (File.)
+                             .getCanonicalPath)
+        feed (filemon/sample-subscribe file-monitor sample-file-name)]
     (go
       (>! event-ch {:name "sample-set"
                     :data (pr-str (sample-data component))})
-      (loop [filename (<! feed)]
-        (let [match (= filename (-> component
-                                    sample-file-name
-                                    (File.)
-                                    .getCanonicalPath))
-              write (if match
-                      (try (>! event-ch {:name "sample-set"
-                                         :data (pr-str (sample-data component))})
-                           true
-                           (catch Throwable t
-                             (untap watcher-dist feed)
-                             (close! feed)
-                             false))
-                      true)]
+      (loop [[event filename] (<! feed)]
+        (let [write (try (>! event-ch {:name "sample-set"
+                                       :data (pr-str (sample-data component))})
+                         true
+                         (catch Throwable t
+                           (filemon/sample-unsubscribe file-monitor sample-file-name feed)
+                           (close! feed)
+                           false))]
           (when write (recur (<! feed))))))))
 
 (defn main-js-obj
@@ -120,7 +88,6 @@
 
 (defbefore component-renderer
   [{:keys [request] :as context}]
-  @middleman-build-classpath-hack
   (let [app-name (::app-name context)
         component (-> request :path-params :component)
         component-fn (str component "_component")
@@ -145,7 +112,6 @@
 
 (defbefore static-renderer
   [{:keys [request] :as context}]
-  @middleman-build-classpath-hack
   (let [resource-path-info (str "/" (-> request :path-params :resource))
         request (assoc request :path-info resource-path-info)
         response (-> request
@@ -153,18 +119,40 @@
                      (ring-content-type/content-type-response request))]
     (assoc context :response response)))
 
-(defroutes dev-routes
-  [[["/components/*component" {:get component-renderer}]
-    ["/static/*resource" {:get static-renderer}]
-    ["/sample-streams/*component" {:get [::sample-streamer (sse/start-event-stream sample-streamer)]}]]])
+(defn dev-routes
+  [file-monitor]
+  (expand-routes
+   `[[["/dev" {:get dev-index}
+       ["/components/*component" {:get component-renderer}]
+       ["/static/*resource" {:get static-renderer}]
+       ["/sample-streams/*component" {:get [::sample-streamer ~(sse/start-event-stream (partial sample-streamer file-monitor))]}]]]]))
 
-(def dev-router
-  (router dev-routes))
+(defn expose-app-name
+  [app-name]
+  (pincept/interceptor :enter (fn [context] (assoc context ::app-name app-name))
+                       :name ::expose-app-name))
 
-(defbefore dev-service
-  [{request :request :as context}]
-  (let [dev-path-info (str "/" (-> request :path-params :dev-route))
-        dev-context (-> context
-                        (assoc-in [:request :path-info] dev-path-info)
-                        (update-in [::pincept/queue] conj dev-router))]
-    dev-context))
+(defn dev-pre-route
+  [file-monitor]
+  (let [dev-router (router (dev-routes file-monitor))]
+    (pincept/interceptor :enter (fn [context]
+                                  (let [new-ctx ((:enter dev-router) context)]
+                                    (if (nil? (:route new-ctx))
+                                      context
+                                      new-ctx)))
+                         :name ::dev-pre-route)))
+
+(defrecord DevService
+    [file-monitor app-name dev-interceptors]
+  Lifecycle
+  (start [this]
+    (let [target-middleman (File. "./target/middleman/build")]
+      (RT/addURL (.toURL (.toURI (.getCanonicalFile target-middleman)))))
+    (assoc this :dev-interceptors [(expose-app-name app-name) (dev-pre-route file-monitor)]))
+  (stop [this]
+    (assoc this :dev-interceptors nil)))
+
+(defn apraxis-dev-interceptors
+  [service-map dev-service]
+  (update-in service-map [::bootstrap/interceptors]
+             #(vec (concat % (:dev-interceptors dev-service)))))

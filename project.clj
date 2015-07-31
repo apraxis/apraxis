@@ -9,5 +9,6 @@
                  [io.pedestal/pedestal.service "0.3.1" :exclusions [cheshire com.fasterxml.jackson.core/jackson-core]]
                  [cheshire "5.4.0"]
                  [enlive "1.1.5"]
-                 [clojure-watch "0.1.11"]]
+                 [clojure-watch "0.1.11"]
+                 [com.stuartsierra/component "0.2.3"]]
   :eval-in-leiningen true)
