@@ -1,5 +1,6 @@
 (ns apraxis.service.file-monitor
-  (:require [clojure.core.async :refer [put! chan]]
+  (:require [apraxis.service.middleman :as middleman]
+            [clojure.core.async :refer [put! chan]]
             [clojure-watch.core :refer [start-watch]]
             [io.pedestal.log :as log]
             [com.stuartsierra.component :as component :refer (Lifecycle start stop)])
@@ -21,7 +22,11 @@
   [{:keys [sample-subscriptions] :as file-monitor} sample-file-name channel]
   (swap! sample-subscriptions update-in [sample-file-name] #(vec (remove (partial = channel) %))))
 
-(defrecord FileMonitor [sample-subscriptions sample-watcher-close]
+(defn middleman-build
+  [middleman event filename]
+  (middleman/build middleman))
+
+(defrecord FileMonitor [sample-subscriptions sample-watcher-close middleman middleman-close]
   Lifecycle
   (start [this]
     (let [sample-subscriptions (atom {})]
@@ -32,9 +37,21 @@
                                                        .getCanonicalFile)
                                              :event-types [:modify]
                                              :callback (partial sample-notify sample-subscriptions)
-                                             :options {:recursive true}}]))))
+                                             :options {:recursive true}}])
+        :middleman-close (start-watch [{:path (-> "./src/structure"
+                                                  (File.)
+                                                  .getCanonicalFile)
+                                        :event-types [:modify :create]
+                                        :callback (partial middleman-build middleman)
+                                        :options {:recursive true}}]))))
   (stop [this]
-    ((:sample-watcher-close this))
+    (try ((:sample-watcher-close this))
+         (catch Exception e
+           (log/error e)))
+    (try ((:middleman-close this))
+         (catch Exception e
+           (log/error e)))
     (assoc this
       :sample-subscriptions nil
-      :sample-watcher-close nil)))
+      :sample-watcher-close nil
+      :middleman-close nil)))

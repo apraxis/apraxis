@@ -3,6 +3,7 @@
             [io.pedestal.interceptor :refer [defbefore]]
             [apraxis.service.dev :as dev]
             [apraxis.service.file-monitor :as filemon]
+            [apraxis.service.middleman :as middleman]
             [com.stuartsierra.component :as component :refer (Lifecycle start stop)]))
 
 (defn to-ns
@@ -44,7 +45,9 @@
                       to-ns)
         svc-fn (ns-resolve target-ns 'service)
         service (component/system-map
-                 :file-monitor (filemon/map->FileMonitor {})
+                 :middleman (middleman/map->Middleman {:target-dir "target"})
+                 :file-monitor (component/using (filemon/map->FileMonitor {})
+                                                [:middleman])
                  :dev-service (component/using (dev/map->DevService {:app-name app-name})
                                                [:file-monitor])
                  :apraxis (component/using (map->Apraxis {:svc-fn svc-fn

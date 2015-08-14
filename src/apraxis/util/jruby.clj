@@ -22,9 +22,11 @@
 
 (defn create-src-symlink
   [target-dir]
-  (Files/createSymbolicLink (.toPath (File. (str target-dir "/middleman/source")))
-                            (.toPath (.getCanonicalFile (File. "src")))
-                            (make-array FileAttribute 0)))
+  (let [expected (File. (str target-dir "/middleman/source"))]
+    (when-not (.exists expected)
+      (Files/createSymbolicLink (.toPath expected)
+                                (.toPath (.getCanonicalFile (File. "src")))
+                                (make-array FileAttribute 0)))))
 
 (defn copy-ruby-version
   [target-dir]
