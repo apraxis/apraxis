@@ -1,10 +1,16 @@
 (ns apraxis.service
-  (:require [io.pedestal.http :as server]
+  (:require [clojure.string :as str]
+            [io.pedestal.http :as server]
             [io.pedestal.interceptor :refer [defbefore]]
+            [com.stuartsierra.component :as component :refer (Lifecycle start stop)]
+            [figwheel-sidecar.auto-builder :as figwheel-auto]
+            [figwheel-sidecar.core :as figwheel]
+            [clojurescript-build.auto :as cljs-auto]
             [apraxis.service.dev :as dev]
             [apraxis.service.file-monitor :as filemon]
             [apraxis.service.middleman :as middleman]
             [com.stuartsierra.component :as component :refer (Lifecycle start stop)]))
+
 
 (defn to-ns
   [sym-or-ns]
@@ -15,10 +21,11 @@
 (defonce ^:private apraxis-service (atom nil))
 
 (defrecord Apraxis
-    [svc-fn target-ns dev-service service]
+  [svc-fn target-ns dev-service service app-name]
   Lifecycle
   (start [this]
-    (let [service (-> (svc-fn)
+    (let [app-str (str/replace (str app-name) \- \_)
+          service (-> (svc-fn)
                       (merge {:env :dev
                               ;; do not block thread that starts web server
                               ::server/join? false
@@ -32,10 +39,28 @@
                       server/dev-interceptors
                       (dev/apraxis-dev-interceptors dev-service)
                       server/create-server
-                      server/start)]
-      (assoc this :service service)))
+                      server/start)
+          figwheel-server (figwheel/start-server {:css-dirs ["resources/public/css"]})
+          autobuild-config {:builds [{:id app-str
+                                      :source-paths [(format "src/client/components/%s" app-str) "../apraxis/src/cljs"]
+                                      :build-options {:output-to (format "target/apraxis-js/js/%s_client.js" app-str)
+                                                      :output-dir "target/apraxis-js/js/out"
+                                                      :optimizations :none
+                                                      :pretty-print true
+                                                      :preamble ["react/react.js"]
+                                                      :externs ["react/externs/react.js"]}}]
+                            :figwheel-server figwheel-server
+                            }
+          fig-autobuilder (figwheel-auto/autobuild* autobuild-config)]
+
+      (-> this
+          (assoc :service service)
+          (assoc :autobuilder fig-autobuilder))))
   (stop [this]
-    (update-in this [:service] server/stop)))
+    (-> this
+        (update-in [:autobuilder] cljs-auto/stop-autobuild!)
+        (update-in [:figwheel-server] (comp (constantly nil) figwheel/stop-server))
+        (update-in [:service] server/stop))))
 
 (defn run-apraxis
   [app-name]
@@ -45,14 +70,16 @@
                       to-ns)
         svc-fn (ns-resolve target-ns 'service)
         service (component/system-map
-                 :middleman (middleman/map->Middleman {:target-dir "target"})
-                 :file-monitor (component/using (filemon/map->FileMonitor {})
-                                                [:middleman])
-                 :dev-service (component/using (dev/map->DevService {:app-name app-name})
-                                               [:file-monitor])
-                 :apraxis (component/using (map->Apraxis {:svc-fn svc-fn
-                                                          :target-ns target-ns})
-                                           [:dev-service]))]
+                  :middleman (middleman/map->Middleman {:target-dir "target"})
+                  :file-monitor (component/using (filemon/map->FileMonitor {})
+                                                 [:middleman])
+                  :dev-service (component/using (dev/map->DevService {:app-name app-name})
+                                                [:file-monitor])
+                  :apraxis (component/using (map->Apraxis {:svc-fn svc-fn
+                                                           :target-ns target-ns
+                                                           :app-name app-name})
+                                            [:dev-service]))]
+
     (reset! apraxis-service {:system (component/start service)
                              :app-name app-name})))
 
