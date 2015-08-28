@@ -3,7 +3,9 @@
             [om.dom :as dom]
             [figwheel.client :as figwheel-client]
             [pixels-against-humanity.test]
-            [cljs.reader :as reader]))
+            [cljs.reader :as reader]
+            [goog.string.format]
+            [goog.string :as gstring]))
 
 (defn jig-component
   [{:keys [component data]} owner]
@@ -23,18 +25,21 @@
                          :api-root (aget js-obj "api-root")
                          :component-name (aget js-obj "component-name")
                          :data '()})
+        host (aget js-obj "host")
         stream-url (str (:api-root @app-state)
                         "/sample-streams/"
                         (:component-name @app-state))
-        source (js/EventSource. stream-url)]
+        source (js/EventSource. stream-url)
+        root (.getElementById js/document "jig-root")]
     (.addEventListener source
                        "sample-set"
                        (fn [e]
                          (let [vals (reader/read-string (.-data e))]
                            (swap! app-state assoc :data vals))))
+    (figwheel-client/watch-and-reload
+     :websocket-url   (gstring/format "ws://%s:3449/figwheel-ws" host)
+     :jsload-callback (fn []
+                        (om/detach-root root)
+                        (om/root jig-component app-state {:target root})))
     (om/root jig-component app-state
-             {:target (.getElementById js/document "jig-root")})))
-
-(figwheel-client/watch-and-reload
-  :websocket-url   "ws://localhost:3449/figwheel-ws"
-  :jsload-callback (fn []))
+             {:target root})))

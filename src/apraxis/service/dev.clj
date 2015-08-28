@@ -69,7 +69,8 @@
   [app-name component component-fn scheme server-name server-port]
   (generate-string {"component" (js-name app-name component component-fn)
                     "component-name" component
-                    "api-root" (str scheme "://" server-name ":" server-port "/dev")}))
+                    "api-root" (str scheme "://" server-name ":" server-port "/dev")
+                    "host" server-name}))
 
 (deftemplate jig-template
   "templates/component_jig.html"
