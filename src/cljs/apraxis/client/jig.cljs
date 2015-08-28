@@ -1,6 +1,7 @@
 (ns apraxis.client.jig
   (:require [om.core :as om]
             [om.dom :as dom]
+            [figwheel.client :as figwheel-client]
             [pixels-against-humanity.test]
             [cljs.reader :as reader]))
 
@@ -33,3 +34,7 @@
                            (swap! app-state assoc :data vals))))
     (om/root jig-component app-state
              {:target (.getElementById js/document "jig-root")})))
+
+(figwheel-client/watch-and-reload
+  :websocket-url   "ws://localhost:3449/figwheel-ws"
+  :jsload-callback (fn []))
