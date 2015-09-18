@@ -14,7 +14,7 @@
     (render [_]
       (apply dom/div nil
              (mapcat (fn [d]
-                       [(dom/div nil (str "data: " (pr-str d)))
+                       [(dom/div #js {:className "data-text"} (pr-str d))
                         (om/build component d)
                         (dom/hr nil)])
                      data)))))
