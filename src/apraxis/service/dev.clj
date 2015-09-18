@@ -11,7 +11,7 @@
             [ring.middleware.content-type :as ring-content-type]
             [clojure.java.io :as io]
             [clojure.edn :as edn]
-            [net.cgrand.enlive-html :as html :refer [deftemplate]]
+            [net.cgrand.enlive-html :as html :refer [defsnippet template]]
             [clojure.core.async :refer [go put! >! <! chan mult tap untap close!]]
             [cheshire.core :refer [generate-string]]
             [clojure-watch.core :refer [start-watch]]
@@ -46,7 +46,7 @@
 
 (defn sample-streamer
   [file-monitor event-ch {:keys [request response] :as context}]
-  (let [component (-> (:path-params request) :component)
+  (let [component (-> request :path-params :component)
         sample-file-name (-> component
                              sample-file-name
                              (File.)
@@ -72,8 +72,7 @@
                     "api-root" (str scheme "://" server-name ":" server-port "/dev")
                     "host" server-name}))
 
-(deftemplate jig-template
-  "templates/component_jig.html"
+(defsnippet jig-body "templates/component_jig.html" [:#jig-body]
   [app-name component component-fn scheme server-name server-port]
   [:#component-require] (html/content (str "goog.require('"
                                            (js-name app-name component)
@@ -86,6 +85,13 @@
                                                        server-name
                                                        server-port)
                                           ");")))
+
+(defn jig-template
+  [app-name component component-fn scheme server-name server-port]
+  (let [base-template (template (str "build/structure/components/" component "/index.html")
+                                [app-name component component-fn scheme server-name server-port]
+                                [:#component-root] (html/content (jig-body app-name component component-fn scheme server-name server-port)))]
+    (base-template app-name component component-fn scheme server-name server-port)))
 
 (defbefore component-renderer
   [{:keys [request] :as context}]
@@ -105,7 +111,7 @@
                    (-> response-body
                        response/response
                        (response/content-type "text/html"))
-                   {:body (str "No component '" component "' found. Searching in " (io/resource (str "structure/components")))
+                   {:body (str "No component '" component "' found. Searching in " (io/resource (str "build/structure/components")))
                     :headers {}
                     :status 200})]
     (assoc context

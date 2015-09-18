@@ -26,7 +26,7 @@
   [middleman event filename]
   (middleman/build middleman))
 
-(defrecord FileMonitor [sample-subscriptions sample-watcher-close middleman middleman-close]
+(defrecord FileMonitor [sample-subscriptions sample-watcher-close middleman haml-close sass-close]
   Lifecycle
   (start [this]
     (let [sample-subscriptions (atom {})]
@@ -38,20 +38,30 @@
                                              :event-types [:modify]
                                              :callback (partial sample-notify sample-subscriptions)
                                              :options {:recursive true}}])
-        :middleman-close (start-watch [{:path (-> "./src/structure"
-                                                  (File.)
-                                                  .getCanonicalFile)
-                                        :event-types [:modify :create]
-                                        :callback (partial middleman-build middleman)
-                                        :options {:recursive true}}]))))
+        :haml-close (start-watch [{:path (-> "./src/structure"
+                                             (File.)
+                                             .getCanonicalFile)
+                                   :event-types [:modify :create]
+                                   :callback (partial middleman-build middleman)
+                                   :options {:recursive true}}])
+        :sass-close (start-watch [{:path (-> "./src/style"
+                                             (File.)
+                                             .getCanonicalFile)
+                                   :event-types [:modify :create]
+                                   :callback (partial middleman-build middleman)
+                                   :options {:recursive true}}]))))
   (stop [this]
     (try ((:sample-watcher-close this))
          (catch Exception e
            (log/error e)))
-    (try ((:middleman-close this))
+    (try ((:haml-close this))
+         (catch Exception e
+           (log/error e)))
+    (try ((:sass-close this))
          (catch Exception e
            (log/error e)))
     (assoc this
       :sample-subscriptions nil
       :sample-watcher-close nil
-      :middleman-close nil)))
+      :haml-close nil
+      :sass-close nil)))

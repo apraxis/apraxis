@@ -14,7 +14,7 @@
   Lifecycle
   (start [this]
     (let [app-str (strify app-name)
-          figwheel-server (figwheel/start-server {:css-dirs ["resources/public/css"]})
+          figwheel-server (figwheel/start-server {:css-dirs ["target/middleman/build/style"]})
           autobuild-config {:builds [{:id app-str
                                       :source-paths [(format "src/client/components/%s" app-str) "../apraxis/src/cljs"]
                                       :build-options {:output-to (format "target/apraxis-js/js/%s_client.js" app-str)
