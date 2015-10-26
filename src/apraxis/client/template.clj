@@ -21,6 +21,18 @@
                                :options {:recursive false}}])]
     (deliver closer watcher)))
 
+(defmacro keep-when
+  "Returns the matching nodes (unmodified) when 
+  the given predicate holds."
+  [pred]
+  `(when ~pred identity))
+
+(defmacro remove-when
+  "Removes the matching nodes when the given 
+  predicate holds."
+  [pred]
+  `(when-not ~pred identity))
+
 (defmacro defsnippet
   ([sym path sel args] (do (add-dependency cljs.analyzer/*cljs-file* path)
                            `(kom/defsnippet ~sym ~path ~sel ~args)))
