@@ -2,11 +2,11 @@
 # the following line to use "https"
 source "http://rubygems.org"
 ruby "1.9.3", :engine => "jruby", :engine_version => "1.7.19"
-gem 'middleman', '~> 4.0.0.beta.2'
+gem 'middleman', '~> 4.0.0.rc.1'
+gem 'middleman-compass', '~> 4.0.0.rc.1'
 gem "compass", "~> 1.0.1"
 gem "susy", "~> 2.2.3"
 gem "breakpoint", "~> 2.5.0"
 gem "middleman-syntax", github: "michaelparenteau/middleman-syntax"
-gem "middleman-jquery"
 # Live-reloading plugin
 gem "middleman-livereload", "~> 3.4.2"
