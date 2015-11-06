@@ -10,6 +10,7 @@
             [ring.middleware.resource :as ring-resource]
             [ring.middleware.content-type :as ring-content-type]
             [clojure.java.io :as io]
+            [clojure.string :as str]
             [clojure.edn :as edn]
             [net.cgrand.enlive-html :as html :refer [defsnippet template]]
             [clojure.core.async :refer [go put! >! <! chan mult tap untap close!]]
@@ -30,7 +31,7 @@
 
 (defn js-name
   [& cljs-names]
-  (apply str (interpose "." (map namespace-munge cljs-names))))
+  (str/join  "." (map namespace-munge cljs-names)))
 
 (defn sample-file-name
   [component]
@@ -38,11 +39,16 @@
 
 (defn sample-data
   [component]
-  (let [reader (-> (sample-file-name component)
-                   io/reader
-                   LineNumberingPushbackReader.)]
-    (take-while (partial not= ::end)
-                (repeatedly #(edn/read {:eof ::end} reader)))))
+  (let [sample-file-name (sample-file-name component)]
+    (if (-> sample-file-name
+            (File.)
+            .exists)
+      (with-open [reader (-> sample-file-name
+                             io/reader
+                             LineNumberingPushbackReader.)]
+        (doall (take-while (partial not= ::end)
+                           (repeatedly #(edn/read {:eof ::end} reader)))))
+      '({}))))
 
 (defn sample-streamer
   [file-monitor event-ch {:keys [request response] :as context}]
@@ -107,7 +113,7 @@
         ;; component-resource (io/resource (str "structure/components/" component "/index.html"))
         ;; response-body (io/file component-resource)
         ;; TODO: rewrite CSS and other URLS "/" -> "/dev/static/"
-        response-body (apply str (jig-template app-name component component-fn scheme server-name server-port))
+        response-body (str/join (jig-template app-name component component-fn scheme server-name server-port))
         response (if response-body
                    (-> response-body
                        response/response

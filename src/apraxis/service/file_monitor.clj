@@ -35,7 +35,7 @@
         :sample-watcher-close (start-watch [{:path (-> "./src/sample"
                                                        (File.)
                                                        .getCanonicalFile)
-                                             :event-types [:modify]
+                                             :event-types [:modify :create :delete]
                                              :callback (partial sample-notify sample-subscriptions)
                                              :options {:recursive true}}])
         :haml-close (start-watch [{:path (-> "./src/structure"
