@@ -74,6 +74,7 @@
 
 (defsnippet jig-body "templates/component_jig.html" [:#jig-body]
   [app-name component component-fn scheme server-name server-port]
+  [:#component-bootstrap] (html/set-attr :src (str "/js/" (namespace-munge app-name) "_client.js"))
   [:#component-require] (html/content (str "goog.require('"
                                            (js-name app-name component)
                                            "');"))
