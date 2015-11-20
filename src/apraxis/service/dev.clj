@@ -110,7 +110,7 @@
         server-name (-> context :request :server-name)
         server-port (get (-> context :request :headers) "x-forwarded-port"
                          (-> context :request :server-port))
-        cljs-resource (io/file (io/resource (str "client/components/" (munge app-name) "/" component ".cljs")))
+        cljs-resource (io/file (io/resource (str "client/components/" (munge app-name) "/" (munge component) ".cljs")))
         response-body (if cljs-resource
                         (str/join (jig-template app-name component component-fn scheme server-name server-port))
                         (io/file (io/resource (str "structure/components/" component "/index.html"))))
