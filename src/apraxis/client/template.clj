@@ -1,38 +1,35 @@
 (ns apraxis.client.template
-  (:require [fs.core :as fs]
-            [kioo.om :as kom]
+  (:require [kioo.om :as kom]
             [clojure.java.io :as io]
             [clojure-watch.core :refer [start-watch]])
   (:import java.io.File))
 
-(defn- add-dependency [the-ns-path dep-path]
-  (let [dep-canonical-path (-> dep-path
-                               io/resource
-                               .getFile)
-        closer (promise)
-        watcher (start-watch [{:path (-> dep-canonical-path
-                                         File.
-                                         .getParent)
-                               :event-types [:modify :create]
-                               :callback (fn [event filename]
-                                           (when (= filename dep-canonical-path)
-                                             (fs/touch the-ns-path)
-                                             (@closer)))
-                               :options {:recursive false}}])]
-    (deliver closer watcher)))
+(defprotocol HtmlResourceProvider
+  (html-stream [this component-name] "Returns a byte stream containing the template HTML structure for component-name"))
+
+(deftype ClasspathHtmlResourceProvider []
+  HtmlResourceProvider
+  (html-stream [_ component-name]
+    (.openStream (io/resource (format "build/structure/components/%s/index.html" component-name)))))
+
+(def ^:dynamic *html-resource-provider* (ClasspathHtmlResourceProvider.))
+
+(defn resolve-component-structure
+  [path]
+  (html-stream *html-resource-provider* path))
 
 (defmacro defsnippet
-  ([sym path sel args] (do (add-dependency cljs.analyzer/*cljs-file* path)
-                           `(kom/defsnippet ~sym ~path ~sel ~args)))
-  ([sym path sel args trans] (do (add-dependency cljs.analyzer/*cljs-file* path)
-                                 `(kom/defsnippet ~sym ~path ~sel ~args ~trans)))
-  ([sym path sel args trans opts] (do (add-dependency cljs.analyzer/*cljs-file* path)
-                                      `(kom/defsnippet ~sym ~path ~sel ~args ~trans ~opts))))
+  ([sym path sel args]
+     `(kom/defsnippet ~sym (resolve-component-structure ~path) stream ~sel ~args))
+  ([sym path sel args trans]
+     `(kom/defsnippet ~sym (resolve-component-structure ~path) ~sel ~args ~trans))
+  ([sym path sel args trans opts]
+     `(kom/defsnippet ~sym (resolve-component-structure ~path) ~sel ~args ~trans ~opts)))
 
 (defmacro deftemplate
-  ([sym path args] (do (add-dependency cljs.analyzer/*cljs-file* path)
-                       `(kom/deftemplate ~sym ~path ~args)))
-  ([sym path args trans] (do (add-dependency cljs.analyzer/*cljs-file* path)
-                             `(kom/deftemplate ~sym ~path ~args ~trans)))
-  ([sym path args trans opts] (do (add-dependency cljs.analyzer/*cljs-file* path)
-                                  `(kom/deftemplate ~sym ~path ~args ~trans ~opts))))
+  ([sym path args]
+     `(kom/deftemplate ~sym (resolve-component-structure ~path) ~args))
+  ([sym path args trans]
+     `(kom/deftemplate ~sym (resolve-component-structure ~path) ~args ~trans))
+  ([sym path args trans opts]
+     `(kom/deftemplate ~sym (resolve-component-structure ~path) ~args ~trans ~opts)))

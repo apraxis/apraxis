@@ -1,7 +1,7 @@
 (ns apraxis.service.figwheel
   (:require [com.stuartsierra.component :as component :refer (Lifecycle start stop)]
             [figwheel-sidecar.auto-builder :as figwheel-auto]
-            [figwheel-sidecar.core :as figwheel]
+            [figwheel-sidecar.components.figwheel-server :as figwheel]
             [clojurescript-build.auto :as cljs-auto]
             [clojure.string :as str]))
 

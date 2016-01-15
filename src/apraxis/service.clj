@@ -52,16 +52,17 @@
                       to-ns)
         svc-fn (ns-resolve target-ns 'service)
         service (component/system-map
-                  :middleman (middleman/map->Middleman {:target-dir "target"})
-                  :file-monitor (component/using (filemon/map->FileMonitor {})
-                                                 [:middleman])
-                  :dev-service (component/using (dev/map->DevService {:app-name app-name})
-                                                [:file-monitor])
-                  :figwheel (figwheel/map->Figwheel {:app-name app-name})
-                  :apraxis (component/using (map->Apraxis {:svc-fn svc-fn
-                                                           :target-ns target-ns
-                                                           :app-name app-name})
-                                            [:dev-service]))]
+                 :middleman (middleman/map->Middleman {:target-dir "target"})
+                 :file-monitor (component/using (filemon/map->FileMonitor {})
+                                                [:middleman])
+                 :dev-service (component/using (dev/map->DevService {:app-name app-name})
+                                               [:file-monitor])
+                 :figwheel (component/using (figwheel/map->Figwheel {:app-name app-name})
+                                            [:middleman])
+                 :apraxis (component/using (map->Apraxis {:svc-fn svc-fn
+                                                          :target-ns target-ns
+                                                          :app-name app-name})
+                                           [:dev-service]))]
 
     (reset! apraxis-service {:system (component/start service)
                              :app-name app-name})))
