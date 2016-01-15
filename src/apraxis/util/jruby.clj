@@ -74,11 +74,6 @@
         path (.getFile (io/resource resource))]
     (.runScriptlet container stream path)))
 
-(defn update-rubygems
-  []
-  (let [sc (fresh-scripting-container (str *target-root* "/middleman"))]
-    (run-ruby-resource-in-container sc "ensure_latest_rubygems.rb")))
-
 (defn ensure-bundler
   []
   (let [sc (fresh-scripting-container (str *target-root* "/middleman"))]

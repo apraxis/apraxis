@@ -13,7 +13,6 @@
   Lifecycle
   (start [this]
     (jr/with-target-root (:target-dir this)
-      (jr/update-rubygems)
       (jr/ensure-bundler)
       (jr/ensure-middleman)
       (let [[invoker adapter] (jr/make-middleman-adapter)]
