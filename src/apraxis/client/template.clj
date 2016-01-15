@@ -10,6 +10,7 @@
 (deftype ClasspathHtmlResourceProvider []
   HtmlResourceProvider
   (html-stream [_ component-name]
+    
     (.openStream (io/resource (format "build/structure/components/%s/index.html" component-name)))))
 
 (def ^:dynamic *html-resource-provider* (ClasspathHtmlResourceProvider.))

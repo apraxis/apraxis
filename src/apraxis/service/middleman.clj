@@ -8,26 +8,25 @@
   [{:keys [invoker adapter] :as middleman} path]
   (.callMethod invoker adapter "response" (to-array [path])))
 
-(defrecord Middleman
-    [target-dir invoker adapter]
-  Lifecycle
-  (start [this]
-    (jr/with-target-root (:target-dir this)
-      (jr/ensure-bundler)
-      (jr/ensure-middleman)
-      (let [[invoker adapter] (jr/make-middleman-adapter)]
-        (assoc this
-          :invoker invoker
-          :adapter adapter))))
-  (stop [this]
-    this)
-  template/HtmlResourceProvider
-  (html-stream [this component-name]
-    (ByteArrayInputStream. (.getBytes (response this (format "/structure/components/%s/index.html" component-name))))))
-
 (defn build
   [middleman]
   (jr/with-target-root (:target-dir middleman)
     (jr/run-middleman-build)))
 
-
+(defrecord Middleman
+    [target-dir invoker adapter build-completed]
+  Lifecycle
+  (start [this]
+    (jr/with-target-root (:target-dir this)
+      (jr/ensure-bundler)
+      (jr/ensure-middleman)
+      (build this)
+      #_(let [[invoker adapter] (jr/make-middleman-adapter)]
+          (assoc this
+            :invoker invoker
+            :adapter adapter))))
+  (stop [this]
+    this)
+  template/HtmlResourceProvider
+  (html-stream [this component-name]
+    (ByteArrayInputStream. (.getBytes (response this (format "/structure/components/%s/index.html" component-name))))))

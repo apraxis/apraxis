@@ -82,8 +82,11 @@
 (defn ensure-middleman
   []
   (let [sc (fresh-scripting-container (str *target-root* "/middleman"))]
-    (.put sc "vendor_path" "vendor/bundle")
-    (run-ruby-resource-in-container sc "ensure_middleman.rb")))
+    (run-ruby-resource-in-container sc "inspect_bundle.rb")
+    (when-not (.get sc "@valid")
+      (let [sc (fresh-scripting-container (str *target-root* "/middleman"))]
+        (.put sc "vendor_path" "vendor/bundle")
+        (run-ruby-resource-in-container sc "ensure_middleman.rb")))))
 
 (defn run-middleman-build
   []
