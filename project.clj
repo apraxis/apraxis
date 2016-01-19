@@ -13,8 +13,8 @@
                  [enlive "1.1.5"]
                  [clojure-watch "0.1.11"]
                  [com.stuartsierra/component "0.2.3"]
-                 [figwheel "0.5.0-2" :exclusions [org.clojure/tools.reader]]
-                 [figwheel-sidecar "0.5.0-2" :exclusions [org.clojure/tools.reader]]
+                 [figwheel "0.5.0-3" :exclusions [org.clojure/tools.reader]]
+                 [figwheel-sidecar "0.5.0-3" :exclusions [org.clojure/tools.reader]]
                  [clojurescript-build "0.1.7"]]
 
             :plugins [[lein-cljsbuild "1.0.5"]

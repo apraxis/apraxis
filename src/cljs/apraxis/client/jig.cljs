@@ -1,11 +1,10 @@
 (ns apraxis.client.jig
   (:require [om.core :as om]
             [om.dom :as dom]
-            [figwheel.client :as figwheel-client]
-            [pixels-against-humanity.test]
             [cljs.reader :as reader]
             [goog.string.format]
-            [goog.string :as gstring]))
+            [goog.string :as gstring]
+            [figwheel.client :as figwheel]))
 
 (defn jig-component
   [{:keys [component data]} owner]
@@ -15,31 +14,43 @@
       (apply dom/div nil
              (mapcat (fn [d]
                        [(dom/div #js {:className "data-text"} (pr-str d))
-                        (om/build component d)
+                        (om/build (js/eval component) d)
                         (dom/hr nil)])
                      data)))))
 
+(defonce *root* (atom nil))
+
+(defonce *app-state* (atom {}))
+
+(defn om-reset
+  []
+  (om/detach-root @*root*)
+  (om/root jig-component *app-state* {:target @*root*}))
+
+(defn initialize-app-state
+  [state js-obj]
+  (-> state
+      (assoc :component (.-component js-obj))
+      (assoc :api-root (aget js-obj "api-root"))
+      (assoc :component-name (aget js-obj "component-name"))
+      (assoc :application-name (aget js-obj "application-name"))
+      (assoc :data '())))
+
 (defn ^:export -main
   [js-obj]
-  (let [app-state (atom {:component (js/eval (.-component js-obj))
-                         :api-root (aget js-obj "api-root")
-                         :component-name (aget js-obj "component-name")
-                         :data '()})
+  (let [root (reset! *root* (.getElementById js/document "jig-root"))
+        app-state (swap! *app-state* initialize-app-state js-obj)
         host (aget js-obj "host")
-        stream-url (str (:api-root @app-state)
+        stream-url (str (:api-root @*app-state*)
                         "/sample-streams/"
-                        (:component-name @app-state))
-        source (js/EventSource. stream-url)
-        root (.getElementById js/document "jig-root")]
+                        (:component-name @*app-state*))
+        source (js/EventSource. stream-url)]
+    (figwheel/start  {:on-jsload om-reset
+                      :websocket-url (gstring/format "ws://%s:3449/figwheel-ws" host)
+                      :build-id (:application-name app-state)})
     (.addEventListener source
                        "sample-set"
                        (fn [e]
                          (let [vals (reader/read-string (.-data e))]
-                           (swap! app-state assoc :data vals))))
-    (figwheel-client/watch-and-reload
-     :websocket-url   (gstring/format "ws://%s:3449/figwheel-ws" host)
-     :jsload-callback (fn []
-                        (om/detach-root root)
-                        (om/root jig-component app-state {:target root})))
-    (om/root jig-component app-state
-             {:target root})))
+                           (swap! *app-state* assoc :data vals))))
+    (om/root jig-component *app-state* {:target root})))

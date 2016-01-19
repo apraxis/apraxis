@@ -15,7 +15,7 @@ class MiddlemanAdapter
     @rack = Middleman::Rack.new(@app).to_app
   end
 
-  def response(path)
+  def raw_response(path)
     response = @rack.call({"REQUEST_METHOD" => "GET",
                             "SERVER_NAME" => "localhost",
                             "SERVER_PORT" => "8080",
@@ -30,10 +30,17 @@ class MiddlemanAdapter
                             "PATH_INFO" => path,
                             "SCRIPT_NAME" => ""})
     res = []
-    response[2].each do |herp|
-      res.push herp
+    response[2].each do |chunk|
+      res.push chunk
     end
-    res.join ""
+    {status: response[0],
+      headers: response[1],
+      body: res.join("")}
+  end
+
+  def response(path)
+    response = raw_response(path)
+    response[:body]
   end
 end
 

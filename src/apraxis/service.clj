@@ -56,7 +56,7 @@
                  :file-monitor (component/using (filemon/map->FileMonitor {})
                                                 [:middleman])
                  :dev-service (component/using (dev/map->DevService {:app-name app-name})
-                                               [:file-monitor])
+                                               [:file-monitor :middleman])
                  :figwheel (component/using (figwheel/map->Figwheel {:app-name app-name})
                                             [:middleman])
                  :apraxis (component/using (map->Apraxis {:svc-fn svc-fn
@@ -81,3 +81,19 @@
                     {:current-apraxis-service apraxis-service})))
   (stop-apraxis)
   (-> @apraxis-service :app-name run-apraxis))
+
+(defmacro apraxis-service!
+  []
+  (let [service-name (-> *ns*
+                         ns-name
+                         name
+                         (str/split #"\.")
+                         first
+                         symbol)
+        service-ns-stem (-> *ns* ns-name name)
+        start-sym (symbol service-ns-stem "start")
+        stop-sym (symbol service-ns-stem "stop")
+        restart-sym (symbol service-ns-stem "restart")]
+    `(do (defn ~start-sym [] (run-apraxis (quote ~service-name)))
+         (defn ~stop-sym [] (stop-apraxis))
+         (defn ~restart-sym [] (restart-apraxis)))))

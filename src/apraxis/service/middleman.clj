@@ -8,6 +8,10 @@
   [{:keys [invoker adapter] :as middleman} path]
   (.callMethod invoker adapter "response" (to-array [path])))
 
+(defn raw-response
+  [{:keys [invoker adapter] :as middleman} path]
+  (.callMethod invoker adapter "raw_response" (to-array [path])))
+
 (defn build
   [middleman]
   (jr/with-target-root (:target-dir middleman)
@@ -20,11 +24,10 @@
     (jr/with-target-root (:target-dir this)
       (jr/ensure-bundler)
       (jr/ensure-middleman)
-      (build this)
-      #_(let [[invoker adapter] (jr/make-middleman-adapter)]
-          (assoc this
-            :invoker invoker
-            :adapter adapter))))
+      (let [[invoker adapter] (jr/make-middleman-adapter)]
+        (assoc this
+          :invoker invoker
+          :adapter adapter))))
   (stop [this]
     this)
   template/HtmlResourceProvider

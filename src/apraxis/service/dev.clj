@@ -1,5 +1,12 @@
 (ns apraxis.service.dev
-  (:require [io.pedestal.interceptor :refer [defbefore definterceptorfn]]
+  (:require [clojure.java.io :as io]
+            [clojure.string :as str]
+            [clojure.edn :as edn]
+            [clojure.core.async :refer [go put! >! <! chan mult tap untap close!]]
+            [clojure-watch.core :refer [start-watch]]
+            [cheshire.core :refer [generate-string]]
+            [com.stuartsierra.component :as component :refer (Lifecycle start stop)]
+            [io.pedestal.interceptor :refer [defbefore definterceptorfn]]
             [io.pedestal.http :as bootstrap]
             [io.pedestal.http.route :refer [router]]
             [io.pedestal.http.route.definition :refer [expand-routes]]
@@ -9,15 +16,10 @@
             [ring.util.response :as response]
             [ring.middleware.resource :as ring-resource]
             [ring.middleware.content-type :as ring-content-type]
-            [clojure.java.io :as io]
-            [clojure.string :as str]
-            [clojure.edn :as edn]
             [net.cgrand.enlive-html :as html :refer [defsnippet template]]
-            [clojure.core.async :refer [go put! >! <! chan mult tap untap close!]]
-            [cheshire.core :refer [generate-string]]
-            [clojure-watch.core :refer [start-watch]]
-            [com.stuartsierra.component :as component :refer (Lifecycle start stop)]
-            [apraxis.service.file-monitor :as filemon])
+            [apraxis.service.file-monitor :as filemon]
+            [apraxis.service.middleman :as middleman]
+            [apraxis.client.template :as template])
   (:import (java.io File)
            (clojure.lang RT LineNumberingPushbackReader)))
 
@@ -73,7 +75,8 @@
 
 (defn main-js-obj
   [app-name component component-fn scheme server-name server-port]
-  (generate-string {"component" (js-name app-name component component-fn)
+  (generate-string {"application-name" (munge app-name)
+                    "component" (js-name app-name component component-fn)
                     "component-name" component
                     "api-root" (str scheme "://" server-name ":" server-port "/dev")
                     "host" server-name}))
@@ -95,7 +98,7 @@
 
 (defn jig-template
   [app-name component component-fn scheme server-name server-port]
-  (let [base-template (template (str "build/structure/components/" component "/index.html")
+  (let [base-template (template (template/resolve-component-structure (munge component))
                                 [app-name component component-fn scheme server-name server-port]
                                 [:#component-root] (html/content (jig-body app-name component component-fn scheme server-name server-port)))]
     (base-template app-name component component-fn scheme server-name server-port)))
@@ -110,10 +113,10 @@
         server-name (-> context :request :server-name)
         server-port (get (-> context :request :headers) "x-forwarded-port"
                          (-> context :request :server-port))
-        cljs-resource (io/file (io/resource (str "client/components/" (munge app-name) "/" (munge component) ".cljs")))
+        cljs-resource (io/file (io/resource (format "%s/%s.cljs" (munge app-name) (munge component))))
         response-body (if cljs-resource
                         (str/join (jig-template app-name component component-fn scheme server-name server-port))
-                        (io/file (io/resource (str "structure/components/" component "/index.html"))))
+                        (template/resolve-component-structure (munge component)))
         response (if response-body
                    (-> response-body
                        response/response
@@ -156,13 +159,41 @@
                                       new-ctx)))
                          :name ::dev-pre-route)))
 
+(defn embedded-middleman-html-resource-provider
+  [middleman]
+  (pincept/interceptor :enter (fn [context]
+                                (assoc-in context [:bindings #'template/*html-resource-provider*] middleman))
+                       :name ::mm-html-resource-provider))
+
+(defn ruby-symbol->clj-keyword
+  [ruby-symbol]
+  (keyword (.asJavaString ruby-symbol)))
+
+(defn middleman-last-resort
+  [middleman]
+  (pincept/interceptor :leave (fn [context]
+                                (if (-> context :response some?)
+                                  context
+                                  (let [path (-> context :request :path-info)
+                                        result (->> path
+                                                    (middleman/raw-response middleman)
+                                                    (map (fn [[k v]] [(ruby-symbol->clj-keyword k) v]))
+                                                    (into {}))]
+                                    (if (= 200 (:status result))
+                                      (assoc context :response result)
+                                      context))))
+                       :name ::mm-last-resort-handler))
+
 (defrecord DevService
-    [file-monitor app-name dev-interceptors]
+    [file-monitor middleman app-name dev-interceptors]
   Lifecycle
   (start [this]
     (let [target-middleman (File. "./target/middleman/build")]
       (RT/addURL (.toURL (.toURI (.getCanonicalFile target-middleman)))))
-    (assoc this :dev-interceptors [(expose-app-name app-name) (dev-pre-route file-monitor)]))
+    (assoc this :dev-interceptors [(embedded-middleman-html-resource-provider middleman)
+                                   (expose-app-name app-name)
+                                   (middleman-last-resort middleman)
+                                   (dev-pre-route file-monitor)]))
   (stop [this]
     (assoc this :dev-interceptors nil)))
 
