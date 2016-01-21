@@ -6,7 +6,6 @@
   :resource-paths ["resources"]
   :dependencies [[org.clojure/clojure "1.7.0"]
                  [org.clojure/clojurescript "1.7.170"]
-
                  [org.jruby/jruby-complete "9.0.4.0"]
                  [io.pedestal/pedestal.service "0.3.1" :exclusions [cheshire com.fasterxml.jackson.core/jackson-core]]
                  [cheshire "5.4.0"]
@@ -15,7 +14,8 @@
                  [com.stuartsierra/component "0.2.3"]
                  [figwheel "0.5.0-3" :exclusions [org.clojure/tools.reader]]
                  [figwheel-sidecar "0.5.0-3" :exclusions [org.clojure/tools.reader]]
-                 [clojurescript-build "0.1.7"]]
+                 [clojurescript-build "0.1.7"]
+                 [kioo "0.4.1" :exclusions [org.clojure/tools.reader com.keminglabs/cljx]]]
 
             :plugins [[lein-cljsbuild "1.0.5"]
                       ;[lein-figwheel "0.3.7"]

@@ -1,67 +1,62 @@
 (ns apraxis.service.file-monitor
-  (:require [apraxis.service.middleman :as middleman]
-            [clojure.core.async :refer [put! chan]]
+  (:require [clojure.core.async :as async]
             [clojure-watch.core :refer [start-watch]]
             [io.pedestal.log :as log]
             [com.stuartsierra.component :as component :refer (Lifecycle start stop)])
   (:import (java.io File)))
 
 
-(defn sample-notify
-  [sample-subscriptions event filename]
-  (doseq [subscriber (@sample-subscriptions filename)]
-    (put! subscriber [event filename])))
-
-(defn sample-subscribe
-  [{:keys [sample-subscriptions] :as file-monitor} sample-file-name]
-  (let [subscription (chan)]
-    (swap! sample-subscriptions update-in [sample-file-name] (fnil conj []) subscription)
-    subscription))
-
-(defn sample-unsubscribe
-  [{:keys [sample-subscriptions] :as file-monitor} sample-file-name channel]
-  (swap! sample-subscriptions update-in [sample-file-name] #(vec (remove (partial = channel) %))))
-
-(defn middleman-build
-  [middleman event filename]
-  (middleman/build middleman))
-
-(defrecord FileMonitor [sample-subscriptions sample-watcher-close middleman haml-close sass-close]
+(defrecord FileMonitor [file-event-sink file-event-pub sample-close structure-close style-close]
   Lifecycle
   (start [this]
-    (let [sample-subscriptions (atom {})]
+    (let [file-event-sink (async/chan)
+          file-event-pub (async/pub file-event-sink :type)]
       (assoc this
-        :sample-subscriptions sample-subscriptions
-        :sample-watcher-close (start-watch [{:path (-> "./src/sample"
-                                                       (File.)
-                                                       .getCanonicalFile)
-                                             :event-types [:modify :create :delete]
-                                             :callback (partial sample-notify sample-subscriptions)
-                                             :options {:recursive true}}])
-        :haml-close (start-watch [{:path (-> "./src/structure"
-                                             (File.)
-                                             .getCanonicalFile)
-                                   :event-types [:modify :create]
-                                   :callback (partial middleman-build middleman)
-                                   :options {:recursive true}}])
-        :sass-close (start-watch [{:path (-> "./src/style"
-                                             (File.)
-                                             .getCanonicalFile)
-                                   :event-types [:modify :create]
-                                   :callback (partial middleman-build middleman)
-                                   :options {:recursive true}}]))))
+        :file-event-sink file-event-sink
+        :file-event-pub file-event-pub
+        :sample-close (start-watch [{:path (-> "./src/sample"
+                                               (File.)
+                                               .getCanonicalFile)
+                                     :event-types [:modify :create :delete]
+                                     :callback (fn [event filename]
+                                                 (async/put! file-event-sink {:type :sample
+                                                                              :event event
+                                                                              :filename filename}))
+                                     :options {:recursive true}}])
+        :structure-close (start-watch [{:path (-> "./src/structure"
+                                                  (File.)
+                                                  .getCanonicalFile)
+                                        :event-types [:modify :create :delete]
+                                        :callback (fn [event filename]
+                                                    (async/put! file-event-sink {:type :structure
+                                                                                 :event event
+                                                                                 :filename filename}))
+                                        :options {:recursive true}}])
+        :style-close (start-watch [{:path (-> "./src/style"
+                                              (File.)
+                                              .getCanonicalFile)
+                                    :event-types [:modify :create :delete]
+                                    :callback (fn [event filename]
+                                                (async/put! file-event-sink {:type :style
+                                                                             :event event
+                                                                             :filename filename}))
+                                    :options {:recursive true}}]))))
   (stop [this]
-    (try ((:sample-watcher-close this))
+    (try ((:sample-close this))
          (catch Exception e
            (log/error e)))
-    (try ((:haml-close this))
+    (try ((:structure-close this))
          (catch Exception e
            (log/error e)))
-    (try ((:sass-close this))
+    (try ((:style-close this))
+         (catch Exception e
+           (log/error e)))
+    (try (async/close! file-event-sink)
          (catch Exception e
            (log/error e)))
     (assoc this
-      :sample-subscriptions nil
-      :sample-watcher-close nil
+      :file-event-sink nil
+      :file-event-pub nil
+      :sample-close nil
       :haml-close nil
       :sass-close nil)))

@@ -8,6 +8,7 @@
             [apraxis.service.file-monitor :as filemon]
             [apraxis.service.middleman :as middleman]
             [apraxis.service.figwheel :as figwheel]
+            [apraxis.service.dev-component :as dev-component]
             [com.stuartsierra.component :as component :refer (Lifecycle start stop)]))
 
 
@@ -19,8 +20,7 @@
 
 (defonce ^:private apraxis-service (atom nil))
 
-(defrecord Apraxis
-    [svc-fn target-ns dev-service service app-name]
+(defrecord Apraxis [svc-fn target-ns dev-service service app-name]
   Lifecycle
   (start [this]
     (let [app-str (str/replace (str app-name) \- \_)
@@ -53,16 +53,17 @@
         svc-fn (ns-resolve target-ns 'service)
         service (component/system-map
                  :middleman (middleman/map->Middleman {:target-dir "target"})
-                 :file-monitor (component/using (filemon/map->FileMonitor {})
-                                                [:middleman])
+                 :file-monitor (filemon/map->FileMonitor {})
+                 :dev-component-pusher (component/using (dev-component/map->DevComponentPusher {:app-name app-name})
+                                                        [:file-monitor])
                  :dev-service (component/using (dev/map->DevService {:app-name app-name})
-                                               [:file-monitor :middleman])
-                 :figwheel (component/using (figwheel/map->Figwheel {:app-name app-name})
-                                            [:middleman])
+                                               [:dev-component-pusher :middleman])
                  :apraxis (component/using (map->Apraxis {:svc-fn svc-fn
                                                           :target-ns target-ns
                                                           :app-name app-name})
-                                           [:dev-service]))]
+                                           [:dev-service])
+                 :figwheel (component/using (figwheel/map->Figwheel {:app-name app-name})
+                                            [:middleman :dev-component-pusher]))]
 
     (reset! apraxis-service {:system (component/start service)
                              :app-name app-name})))
