@@ -8,6 +8,7 @@
             [apraxis.service.file-monitor :as filemon]
             [apraxis.service.middleman :as middleman]
             [apraxis.service.figwheel :as figwheel]
+            [apraxis.service.sass-cache :as sass-cache]
             [apraxis.service.dev-component :as dev-component]
             [com.stuartsierra.component :as component :refer (Lifecycle start stop)]))
 
@@ -56,14 +57,17 @@
                  :file-monitor (filemon/map->FileMonitor {})
                  :dev-component-pusher (component/using (dev-component/map->DevComponentPusher {:app-name app-name})
                                                         [:file-monitor])
+                 :figwheel (component/using (figwheel/map->Figwheel {:app-name app-name})
+                                            [:dev-component-pusher :middleman])
+                 :sass-cache (component/using (sass-cache/map->SassCache {})
+                                              [:file-monitor :middleman :figwheel])
                  :dev-service (component/using (dev/map->DevService {:app-name app-name})
-                                               [:dev-component-pusher :middleman])
+                                               [:dev-component-pusher :middleman :sass-cache])
                  :apraxis (component/using (map->Apraxis {:svc-fn svc-fn
                                                           :target-ns target-ns
                                                           :app-name app-name})
                                            [:dev-service])
-                 :figwheel (component/using (figwheel/map->Figwheel {:app-name app-name})
-                                            [:middleman :dev-component-pusher]))]
+                 )]
 
     (reset! apraxis-service {:system (component/start service)
                              :app-name app-name})))

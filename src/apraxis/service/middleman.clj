@@ -8,9 +8,18 @@
   [{:keys [invoker adapter] :as middleman} path]
   (.callMethod invoker adapter "response" (to-array [path])))
 
+(defn ruby-symbol->clj-keyword
+  [ruby-symbol]
+  (keyword (.asJavaString ruby-symbol)))
+
 (defn raw-response
   [{:keys [invoker adapter] :as middleman} path]
-  (.callMethod invoker adapter "raw_response" (to-array [path])))
+  (->> path
+       vector
+       to-array
+       (.callMethod invoker adapter "raw_response")
+       (map (fn [[k v]] [(ruby-symbol->clj-keyword k) v]))
+       (into {})))
 
 (defn build
   [middleman]

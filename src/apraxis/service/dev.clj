@@ -97,32 +97,26 @@
                                 (assoc-in context [:bindings #'template/*html-resource-provider*] middleman))
                        :name ::mm-html-resource-provider))
 
-(defn ruby-symbol->clj-keyword
-  [ruby-symbol]
-  (keyword (.asJavaString ruby-symbol)))
-
 (defn middleman-last-resort
   [middleman]
   (pincept/interceptor :leave (fn [context]
                                 (if (-> context :response some?)
                                   context
-                                  (let [path (-> context :request :path-info)
-                                        result (->> path
-                                                    (middleman/raw-response middleman)
-                                                    (map (fn [[k v]] [(ruby-symbol->clj-keyword k) v]))
-                                                    (into {}))]
+                                  (let [path (-> context :request :path-info) 
+                                        result (middleman/raw-response middleman path)]
                                     (if (= 200 (:status result))
                                       (assoc context :response result)
                                       context))))
                        :name ::mm-last-resort-handler))
 
 (defrecord DevService
-    [dev-component-pusher middleman app-name dev-interceptors]
+    [dev-component-pusher sass-cache middleman app-name dev-interceptors]
   Lifecycle
   (start [this]
     (assoc this :dev-interceptors [(embedded-middleman-html-resource-provider middleman)
                                    (expose-app-name app-name)
                                    (middleman-last-resort middleman)
+                                   (:css-interceptor sass-cache)
                                    (dev-pre-route dev-component-pusher)]))
   (stop [this]
     (assoc this :dev-interceptors nil)))
