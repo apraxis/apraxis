@@ -14,12 +14,13 @@
 
 (defn raw-response
   [{:keys [invoker adapter] :as middleman} path]
-  (->> path
-       vector
-       to-array
-       (.callMethod invoker adapter "raw_response")
-       (map (fn [[k v]] [(ruby-symbol->clj-keyword k) v]))
-       (into {})))
+  (update (->> path
+               vector
+               to-array
+               (.callMethod invoker adapter "raw_response")
+               (map (fn [[k v]] [(ruby-symbol->clj-keyword k) v]))
+               (into {}))
+          :body byte-array))
 
 (defn build
   [middleman]
@@ -41,4 +42,4 @@
     this)
   template/HtmlResourceProvider
   (html-stream [this component-name]
-    (ByteArrayInputStream. (.getBytes (response this (format "/structure/components/%s/index.html" component-name))))))
+    (ByteArrayInputStream. (byte-array (response this (format "/structure/components/%s/index.html" component-name))))))

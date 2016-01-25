@@ -31,11 +31,11 @@ class MiddlemanAdapter
                             "SCRIPT_NAME" => ""})
     res = []
     response[2].each do |chunk|
-      res.push chunk
+      res.concat chunk.bytes
     end
     {status: response[0],
       headers: response[1],
-      body: res.join("")}
+      body: res}
   end
 
   def response(path)
