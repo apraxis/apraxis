@@ -1,4 +1,4 @@
-(defproject org.apraxis/apraxis "0.0.1-SNAPSHOT"
+(defproject org.apraxis/apraxis "0.0.1"
   :description "The Apraxis Application Framework"
   :url "github.com/apraxis/apraxis"
   :license {:name "MIT"
