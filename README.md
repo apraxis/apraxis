@@ -105,7 +105,7 @@ When generating a single-page app, tests are generated that exercise the app in 
 
 ## License
 
-Copyright © 2015-2016 Alex Redington, Joe R. Smith, Michael Parenteau, and Sam Umbach
+Copyright © 2015-2016 The Apraxis Org.
 
 Distributed under the Eclipse Public License either version 1.0 or (at
 your option) any later version.
