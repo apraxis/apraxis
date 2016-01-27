@@ -1,7 +1,7 @@
 (ns apraxis.service
   (:require [clojure.string :as str]
             [io.pedestal.http :as server]
-            [io.pedestal.interceptor :refer [defbefore]]
+            [io.pedestal.interceptor.helpers :refer [defbefore]]
             [com.stuartsierra.component :as component :refer (Lifecycle start stop)]
             [clojurescript-build.auto :as cljs-auto]
             [apraxis.service.dev :as dev]

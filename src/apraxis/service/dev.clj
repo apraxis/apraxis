@@ -4,11 +4,11 @@
             [clojure.edn :as edn]
             [clojure.core.async :refer [go put! >! <! chan mult tap untap close! sliding-buffer sub]]
             [com.stuartsierra.component :as component :refer (Lifecycle start stop)]
-            [io.pedestal.interceptor :refer [defbefore]]
+            [io.pedestal.interceptor.helpers :refer [defbefore]]
             [io.pedestal.http :as bootstrap]
             [io.pedestal.http.route :refer [router]]
             [io.pedestal.http.route.definition :refer [expand-routes]]
-            [io.pedestal.impl.interceptor :as pincept]
+            [io.pedestal.interceptor :as pincept]
             [io.pedestal.http.sse :as sse]
             [ring.util.response :as response]
             [ring.middleware.resource :as ring-resource]
@@ -17,7 +17,8 @@
             [apraxis.service.middleman :as middleman]
             [apraxis.client.template :as template])
   (:import (java.io File)
-           (clojure.lang RT LineNumberingPushbackReader)))
+           (clojure.lang RT LineNumberingPushbackReader)
+           (java.lang Throwable)))
 
 (defbefore dev-index
   [context]
@@ -43,7 +44,7 @@
           (let [write (try (>! event-ch {:name "sample-set"
                                          :data (pr-str (dev-component/sample-data component))})
                            true
-                           (catch Throwable t
+                           #_(catch java.lang.Throwable t
                              (close! feed)
                              false))]
             (when write (recur (<! feed)))))))))
@@ -78,36 +79,36 @@
 
 (defn expose-app-name
   [app-name]
-  (pincept/interceptor :enter (fn [context] (assoc context ::app-name app-name))
-                       :name ::expose-app-name))
+  (pincept/interceptor {:enter (fn [context] (assoc context ::app-name app-name))
+                        :name ::expose-app-name}))
 
 (defn dev-pre-route
   [dev-component-pusher]
   (let [dev-router (router (dev-routes dev-component-pusher))]
-    (pincept/interceptor :enter (fn [context]
-                                  (let [new-ctx ((:enter dev-router) context)]
-                                    (if (nil? (:route new-ctx))
-                                      context
-                                      new-ctx)))
-                         :name ::dev-pre-route)))
+    (pincept/interceptor {:enter (fn [context]
+                                   (let [new-ctx ((:enter dev-router) context)]
+                                     (if (nil? (:route new-ctx))
+                                       context
+                                       new-ctx)))
+                          :name ::dev-pre-route})))
 
 (defn embedded-middleman-html-resource-provider
   [middleman]
-  (pincept/interceptor :enter (fn [context]
-                                (assoc-in context [:bindings #'template/*html-resource-provider*] middleman))
-                       :name ::mm-html-resource-provider))
+  (pincept/interceptor {:enter (fn [context]
+                                 (assoc-in context [:bindings #'template/*html-resource-provider*] middleman))
+                        :name ::mm-html-resource-provider}))
 
 (defn middleman-last-resort
   [middleman]
-  (pincept/interceptor :leave (fn [context]
-                                (if (-> context :response some?)
-                                  context
-                                  (let [path (-> context :request :path-info) 
-                                        result (middleman/raw-response middleman path)]
-                                    (if (= 200 (:status result))
-                                      (assoc context :response result)
-                                      context))))
-                       :name ::mm-last-resort-handler))
+  (pincept/interceptor {:leave (fn [context]
+                                 (if (-> context :response some?)
+                                   context
+                                   (let [path (-> context :request :path-info) 
+                                         result (middleman/raw-response middleman path)]
+                                     (if (= 200 (:status result))
+                                       (assoc context :response result)
+                                       context))))
+                        :name ::mm-last-resort-handler}))
 
 (defrecord DevService
     [dev-component-pusher sass-cache middleman app-name dev-interceptors]

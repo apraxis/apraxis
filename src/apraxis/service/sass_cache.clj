@@ -1,7 +1,7 @@
 (ns apraxis.service.sass-cache
   (require [clojure.core.async :as async]
            [apraxis.service.middleman :as middleman]
-           [io.pedestal.interceptor :refer (definterceptorfn interceptor)]
+           [io.pedestal.interceptor :refer (interceptor)]
            [com.stuartsierra.component :as component :refer (Lifecycle start stop)]
            [figwheel-sidecar.components.figwheel-server :as fig]))
 
@@ -59,8 +59,8 @@
 
 (defn make-css-interceptor
   [figwheel middleman css-cache]
-  (interceptor :enter (partial css-interceptor-enter-fn figwheel middleman css-cache)
-               :name ::sass-cache))
+  (interceptor {:enter (partial css-interceptor-enter-fn figwheel middleman css-cache)
+                :name ::sass-cache}))
 
 (defn recalc-all-css
   [cached-css figwheel middleman]
