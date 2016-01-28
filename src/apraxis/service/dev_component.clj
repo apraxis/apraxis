@@ -17,7 +17,7 @@
 
 (defn sample-file-name
   [component-name]
-  (format "./src/sample/%s.edn" (munge component-name)))
+  (format "./src/sample/%s.edn" component-name))
 
 (defn js-name
   [& cljs-names]
@@ -48,7 +48,7 @@
 
 (defn jig-template
   [app-name component component-fn scheme server-name server-port]
-  (let [base-template (template (template/resolve-component-structure (munge component))
+  (let [base-template (template (template/resolve-component-structure component)
                                 [app-name component component-fn scheme server-name server-port]
                                 [:#component-root] (html/content (jig-body app-name component component-fn scheme server-name server-port)))]
     (base-template app-name component component-fn scheme server-name server-port)))
@@ -71,7 +71,7 @@
           cljs-resource (io/file (io/resource (format "%s/%s.cljs" (munge app-name) (munge component-name))))]
       (if cljs-resource
         (str/join (jig-template app-name component-name component-fn scheme server-name server-port))
-        (template/resolve-component-structure (munge component-name)))))
+        (template/resolve-component-structure component-name))))
   (cljs-source [this]
     (.getCanonicalPath (io/file (io/resource (format "%s/%s.cljs" (munge app-name) (munge component-name)))))))
 

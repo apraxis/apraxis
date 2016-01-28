@@ -54,6 +54,7 @@
   (let [app-name (::app-name context)
         component-name (-> request :path-params :component)
         component (dev-component/dev-component app-name component-name)
+
         scheme (name (get-in context [:request :headers "x-forwarded-proto"]
                              (-> context :request :scheme)))
         server-name (-> context :request :server-name)
@@ -68,7 +69,7 @@
                     :headers {}
                     :status 404})]
     (assoc context
-      :response response)))
+           :response response)))
 
 (defn dev-routes
   [dev-component-pusher]

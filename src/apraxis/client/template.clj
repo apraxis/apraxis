@@ -1,6 +1,7 @@
 (ns apraxis.client.template
   (:require [kioo.om :as kom]
             [clojure.java.io :as io]
+            [clojure.string :as str]
             [clojure-watch.core :refer [start-watch]])
   (:import java.io.File))
 
@@ -33,3 +34,19 @@
      `(kom/deftemplate ~sym (resolve-component-structure ~path) ~args ~trans))
   ([sym path args trans opts]
      `(kom/deftemplate ~sym (resolve-component-structure ~path) ~args ~trans ~opts)))
+
+(defmacro defroottemplate
+  [sym args & body]
+  (let [resource-name (-> *ns*
+                          ns-name
+                          name
+                          (str/split #"\.")
+                          last)
+        any (symbol "any")
+        transforms (apply hash-map body)]
+    `(defsnippet ~sym
+       ~resource-name
+       [:#component-root :> ~any]
+       ~args
+       ~transforms
+       {:resource-wrapper :mini-html})))
