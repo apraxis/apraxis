@@ -24,6 +24,8 @@ set :markdown, :fenced_code_blocks => true, :smartypants => true
 
 activate :directory_indexes
 
+activate :minify_html, remove_intertag_spaces: true, remove_input_attributes: false, remove_form_attributes: false
+
 live {
   Dir["source/structure/components/**/_*.haml"]
 }.each do |raw_name|

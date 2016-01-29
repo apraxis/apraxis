@@ -21,7 +21,7 @@
 
 (defmacro defsnippet
   ([sym path sel args]
-     `(kom/defsnippet ~sym (resolve-component-structure ~path) stream ~sel ~args))
+     `(kom/defsnippet ~sym (resolve-component-structure ~path) ~sel ~args))
   ([sym path sel args trans]
      `(kom/defsnippet ~sym (resolve-component-structure ~path) ~sel ~args ~trans))
   ([sym path sel args trans opts]
