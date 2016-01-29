@@ -66,30 +66,31 @@
 
 (defrecord Figwheel
     [app-name middleman dev-component-pusher figwheel-system structure-sub]
-  Lifecycle
-  (start [this]
-    (let [app-str (strify app-name)
-          autobuilder-promise (promise)
-          options {:figwheel-options {:cljs-build-fn (cljs-build-fn middleman autobuilder-promise)}
-                   :build-ids [app-str]
-                   :all-builds [{:id app-str
-                                 :figwheel {:websocket-host :js-client-host
-                                            :on-jsload "apraxis.client.jig/om-reset"}
-                                 :source-paths [(format "src/client/components/%s" app-str) "../apraxis/src/cljs"]
-                                 :compiler {:output-to (format "target/apraxis-js/js/%s_client.js" app-str)
-                                            :output-dir "target/apraxis-js/js/out"
-                                            :optimizations :none
-                                            :pretty-print true}}]}
-          structure-sub (doto (async/chan (async/sliding-buffer 5))
-                          (subscribe-to-structure dev-component-pusher))
-          figwheel-system (figwheel-system/create-figwheel-system options)]
-      (async/go-loop [{:keys [component] :as event} (async/<! structure-sub)]
-        (clunk-figwheel-build @autobuilder-promise component)
-        (recur (async/<! structure-sub)))
-      (assoc this
-        :figwheel-system (component/start figwheel-system)
-        :structure-sub structure-sub)))
-  (stop [this]
-    (-> this
-        (update :figwheel-system component/stop)
-        (update :structure-sub async/close!))))
+    Lifecycle
+    (start [this]
+      (let [app-str (strify app-name)
+            autobuilder-promise (promise)
+            options {:figwheel-options {:cljs-build-fn (cljs-build-fn middleman autobuilder-promise)}
+                     :build-ids [app-str]
+                     :all-builds [{:id app-str
+                                   :figwheel {:websocket-host :js-client-host
+                                              :on-jsload "apraxis.client.jig/om-reset"}
+                                   :source-paths [(format "src/client/components/%s" app-str) "../apraxis/src/cljs"]
+                                   :compiler {:output-to (format "target/apraxis-js/js/%s_client.js" app-str)
+                                              :output-dir "target/apraxis-js/js/out"
+                                              :optimizations :none
+                                              :pretty-print true}}]}
+            structure-sub (doto (async/chan (async/sliding-buffer 5))
+                            (subscribe-to-structure dev-component-pusher))
+            figwheel-system (figwheel-system/create-figwheel-system options)]
+        (async/go-loop [{:keys [component] :as event} (async/<! structure-sub)]
+          (when component
+            (clunk-figwheel-build @autobuilder-promise component)
+            (recur (async/<! structure-sub))))
+        (assoc this
+               :figwheel-system (component/start figwheel-system)
+               :structure-sub structure-sub)))
+    (stop [this]
+      (-> this
+          (update :figwheel-system component/stop)
+          (update :structure-sub async/close!))))

@@ -87,26 +87,31 @@
   [structure-file-name]
   (second (re-matches #".*/src/structure/components/_(.*)\.haml" structure-file-name)))
 
+(defn sample-dev-component-xform
+  [app-name {:keys [filename] :as event}]
+  {:type :sample
+   :component (dev-component app-name (sample-file-name->component-name filename))})
+
+(defn structure-dev-component-xform
+  [app-name {:keys [filename] :as event}]
+  {:type :structure
+   :component (dev-component app-name (structure-file-name->component-name filename))})
+
 (defrecord DevComponentPusher [app-name file-monitor component-event-sink component-event-pub sample-sub structure-sub]
   Lifecycle
   (start [this]
     (let [component-event-sink (async/chan)
           component-event-pub (async/pub component-event-sink :type)
-          sample-sub (async/chan (async/sliding-buffer 5))
-          structure-sub (async/chan (async/sliding-buffer 5))]
+          sample-sub (async/chan (async/sliding-buffer 5)
+                                 (comp (map (partial sample-dev-component-xform app-name))
+                                       (filter #(get-in % [:component :component-name]))))
+          structure-sub (async/chan (async/sliding-buffer 5)
+                                    (comp (map (partial structure-dev-component-xform app-name))
+                                          (filter #(get-in % [:component :component-name]))))]
       (async/sub (:file-event-pub file-monitor) :sample sample-sub)
       (async/sub (:file-event-pub file-monitor) :structure structure-sub)
-      (async/go-loop [event (async/<! sample-sub)]
-        (let [component-name (sample-file-name->component-name (:filename event))]
-          (async/>! component-event-sink {:type :sample
-                                          :component (dev-component app-name component-name)})
-          (recur (async/<! sample-sub))))
-      (async/go-loop [event (async/<! structure-sub)]
-        (let [component-name (structure-file-name->component-name (:filename event))]
-          (when component-name
-            (async/>! component-event-sink {:type :structure
-                                            :component (dev-component app-name component-name)}))
-          (recur (async/<! structure-sub))))
+      (async/pipe sample-sub component-event-sink)
+      (async/pipe structure-sub component-event-sink)
       (assoc this :component-event-sink component-event-sink
              :component-event-pub component-event-pub
              :sample-sub sample-sub
