@@ -6,7 +6,7 @@
   :resource-paths ["resources"]
   :dependencies [[org.clojure/clojure "1.7.0"]
                  [org.clojure/clojurescript "1.7.228"]
-                 [org.jruby/jruby-complete "9.0.4.0"]
+                 [org.jruby/jruby-complete "9.1.2.0"]
                  [io.pedestal/pedestal.service "0.4.1" :exclusions [cheshire com.fasterxml.jackson.core/jackson-core]]
                  [cheshire "5.5.0"]
                  [enlive "1.1.6"]

@@ -1,7 +1,7 @@
 # If you have OpenSSL installed, we recommend updating
 # the following line to use "https"
 source "https://rubygems.org"
-ruby "2.2.2", :engine => "jruby", :engine_version => "9.0.4.0"
+ruby "2.3.0", :engine => "jruby", :engine_version => "9.1.2.0"
 gem 'middleman', '~> 4.0.0'
 gem 'middleman-compass', '~> 4.0.0.rc.1'
 gem "compass", "~> 1.0.1"
