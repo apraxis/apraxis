@@ -19,6 +19,18 @@
   [path]
   (html-stream *html-resource-provider* path))
 
+(defmacro keep-when
+  "Returns the matching nodes (unmodified) when 
+  the given predicate holds."
+  [pred]
+  `(when ~pred identity))
+
+(defmacro remove-when
+  "Removes the matching nodes when the given 
+  predicate holds."
+  [pred]
+  `(when-not ~pred identity))
+
 (defmacro defsnippet
   ([sym path sel args]
      `(kom/defsnippet ~sym (resolve-component-structure ~path) ~sel ~args))
